@@ -171,13 +171,18 @@ export class Dragon implements IDragon {
    * @param boostEvent 拖拽初始时事件
    */
   boost(dragObject: IPublicModelDragObject, boostEvent: MouseEvent | DragEvent, fromRglNode?: INode | IPublicModelNode) {
+    console.log('boost-->dragObject: ', dragObject);
+    // console.log('boost-->fromRglNode: ', fromRglNode);
+
     const { designer } = this;
     const masterSensors = this.getMasterSensors();
     const handleEvents = makeEventsHandler(boostEvent, masterSensors);
     const newBie = !isDragNodeObject(dragObject);
+    // console.log('newBie 是不是新拖进来的组件 ', newBie);
     const forceCopyState =
       isDragNodeObject(dragObject) && dragObject.nodes.some((node: Node | IPublicModelNode) => (typeof node.isSlot === 'function' ? node.isSlot() : node.isSlot));
     const isBoostFromDragAPI = isDragEvent(boostEvent);
+    // console.log('判断是否来自HTML5原生拖拽API ', isBoostFromDragAPI);
     let lastSensor: IPublicModelSensor | undefined;
 
     this._dragging = false;
@@ -187,7 +192,9 @@ export class Dragon implements IDragon {
       const sensor = chooseSensor(locateEvent);
       if (!sensor || !sensor.getNodeInstanceFromElement) return {};
       const nodeInst = sensor.getNodeInstanceFromElement(e.target as Element);
-      return nodeInst?.node?.getRGL() || {};
+      const res = nodeInst?.node?.getRGL() || {};
+      // console.log('getRGL 的返回值 --> ', res);
+      return res;
     };
 
     const checkesc = (e: KeyboardEvent) => {
@@ -246,46 +253,57 @@ export class Dragon implements IDragon {
       const locateEvent = createLocateEvent(e);
       const sensor = chooseSensor(locateEvent);
 
+      // console.log('drag 的 locateEvent 参数 --> ', locateEvent);
+
       /* istanbul ignore next */
       if (isRGL) {
         // 禁止被拖拽元素的阻断
-        const nodeInst = dragObject.nodes[0].getDOMNode();
-        if (nodeInst && nodeInst.style) {
-          this.nodeInstPointerEvents = true;
-          nodeInst.style.pointerEvents = 'none';
-        }
+        // const nodeInst = dragObject && dragObject.nodes && dragObject.nodes?.[0]?.getDOMNode();
+        // if (nodeInst && nodeInst.style) {
+        //   this.nodeInstPointerEvents = true;
+        //   nodeInst.style.pointerEvents = 'none';
+        // }
         // 原生拖拽
         this.emitter.emit('rgl.sleeping', false);
         if (fromRglNode && fromRglNode.id === rglNode.id) {
+          // console.log('是从同一个RGL节点内拖拽');
           designer.clearLocation();
           this.clearState();
           this.emitter.emit('drag', locateEvent);
           return;
         }
         this._canDrop = !!sensor?.locate(locateEvent);
+
         if (this._canDrop) {
-          this.emitter.emit('rgl.add.placeholder', {
-            rglNode,
-            fromRglNode,
-            node: locateEvent.dragObject?.nodes[0],
-            event: e,
-          });
-          designer.clearLocation();
-          this.clearState();
-          this.emitter.emit('drag', locateEvent);
-          return;
+          // console.log('尝试在目标位置进行定位，判断可以放置');
+          if (locateEvent && locateEvent.dragObject && locateEvent.dragObject.nodes && locateEvent.dragObject.nodes[0]) {
+            this.emitter.emit('rgl.add.placeholder', {
+              rglNode,
+              fromRglNode,
+              node: locateEvent.dragObject?.nodes[0],
+              event: e,
+            });
+
+            designer.clearLocation();
+            this.clearState();
+            this.emitter.emit('drag', locateEvent);
+            return;
+          }
         }
       } else {
         this._canDrop = false;
         this.emitter.emit('rgl.remove.placeholder');
         this.emitter.emit('rgl.sleeping', true);
       }
+
       if (sensor) {
+        // console.log('sensor: ', sensor);
         sensor.fixEvent(locateEvent);
         sensor.locate(locateEvent);
       } else {
         designer.clearLocation();
       }
+
       this.emitter.emit('drag', locateEvent);
     };
 
@@ -341,7 +359,9 @@ export class Dragon implements IDragon {
     const over = (e?: any) => {
       // 禁止被拖拽元素的阻断
       if (this.nodeInstPointerEvents) {
-        const nodeInst = dragObject.nodes[0].getDOMNode();
+        const nodeInst = dragObject && dragObject.nodes && dragObject.nodes?.[0]?.getDOMNode();
+        // console.log('禁止被拖拽元素的阻断: ', nodeInst);
+
         if (nodeInst && nodeInst.style) {
           nodeInst.style.pointerEvents = '';
         }
@@ -353,8 +373,9 @@ export class Dragon implements IDragon {
         const { isRGL, rglNode } = getRGL(e);
         /* istanbul ignore next */
         if (isRGL && this._canDrop && this._dragging) {
-          const tarNode = dragObject.nodes[0];
-          if (rglNode.id !== tarNode.id) {
+          const tarNode = dragObject && dragObject.nodes && dragObject.nodes?.[0];
+          // console.log('tarNode: ', tarNode);
+          if (tarNode && rglNode.id !== tarNode.id) {
             // 避免死循环
             this.emitter.emit('rgl.drop', {
               rglNode,
@@ -498,6 +519,7 @@ export class Dragon implements IDragon {
 
     /* istanbul ignore next */
     if (isDragEvent(boostEvent)) {
+      // console.log('是拖拽事件');
       const { dataTransfer } = boostEvent;
 
       if (dataTransfer) {
@@ -512,6 +534,7 @@ export class Dragon implements IDragon {
 
       dragstart();
     } else {
+      // console.log('不是拖拽事件');
       this.setNativeSelection(false);
     }
 

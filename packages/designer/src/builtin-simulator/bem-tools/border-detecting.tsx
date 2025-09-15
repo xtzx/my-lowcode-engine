@@ -141,6 +141,7 @@ export class BorderDetecting extends Component<{ host: BuiltinSimulatorHost }> {
         />
       );
     }
+
     return (
       <Fragment>
         {instances.map((inst, i) => (

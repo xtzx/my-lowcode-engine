@@ -23,6 +23,7 @@
     }],
     ["build-plugin-moment-locales", {
       "locales": ["zh-cn"]
-    }]
+    }],
+    "./build.plugin.js"
   ]
 }

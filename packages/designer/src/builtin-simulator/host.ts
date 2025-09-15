@@ -547,6 +547,18 @@ export class BuiltinSimulatorHost implements ISimulatorHost<BuiltinSimulatorProp
         if (this.liveEditing.editing || !documentModel) {
           return;
         }
+        // 如果 downEvent.target 是 SVG 元素，直接返回
+        if (downEvent.target && (downEvent.target as Element).tagName &&
+            ['svg', 'SVG'].includes((downEvent.target as Element).tagName)) {
+          return;
+        }
+        if (downEvent.target?.classList.contains('react-resizable-handle')
+          // || downEvent.target?.classList.contains('react-grid-layout')
+          // || downEvent.target?.className.includes('single-tabs--tab_bar_item')
+        ) {
+          return;
+        }
+
         const { selection } = documentModel;
         let isMulti = false;
         if (this.designMode === 'design') {
