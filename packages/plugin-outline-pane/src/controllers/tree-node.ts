@@ -71,7 +71,8 @@ export default class TreeNode {
    */
   get expandable(): boolean {
     if (this.locked) return false;
-    return this.hasChildren() || this.hasSlots() || this.dropDetail?.index != null;
+    const expandable = this.hasChildren() || this.hasSlots() || this.dropDetail?.index != null;
+    return expandable;
   }
 
   get expanded(): boolean {
@@ -117,6 +118,25 @@ export default class TreeNode {
   }
 
   get title(): IPublicTypeTitleContent {
+    // return this.node.title;
+    // 如果是 Slot 节点
+    if (this.node.isSlotNode) {
+      const slotId = this.node.schema?.id;
+      const { parent } = this.node;
+
+      // 尝试从父节点的 list 中找到对应的 label
+      if (parent) {
+        const list = parent.getPropValue('list');
+        if (Array.isArray(list)) {
+          const item = list.find((item) => item.children?.id === slotId);
+          if (item?.label) {
+            return `插槽(${item.label})`;
+          }
+        }
+      }
+    }
+
+    // 否则返回默认 title
     return this.node.title;
   }
 
@@ -153,7 +173,13 @@ export default class TreeNode {
 
   get slots(): TreeNode[] {
     // todo: shallowEqual
-    return this.node.slots.map((node) => this.tree.getTreeNode(node));
+    const nodeSlots = this.node.slots;
+    // console.log('[📊 TreeNode.slots]', {
+    //   componentName: this.node.componentName,
+    //   slotsCount: nodeSlots.length,
+    //   slotNames: nodeSlots.map((s: any) => s.getExtraProp?.('name')?.getAsString?.() || 'N/A'),
+    // });
+    return nodeSlots.map((node) => this.tree.getTreeNode(node));
   }
 
   get condition(): boolean {

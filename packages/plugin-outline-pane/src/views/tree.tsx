@@ -199,6 +199,7 @@ export default class TreeView extends PureComponent<{
     if (!this.state.root) {
       return null;
     }
+
     return (
       <div
         className="lc-outline-tree"

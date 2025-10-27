@@ -161,23 +161,59 @@ export class Prop implements IProp, IPropParent {
    */
   private get items(): IProp[] | null {
     if (this._items) return this._items;
+
+    // 只记录 list 类型的重建
+    // const shouldLog = this.key === 'list' && this._type === 'list';
+
     return runInAction(() => {
       let items: IProp[] | null = null;
       if (this._type === 'list') {
         const maps = new Map<string, IProp>();
         const data = this._value;
+
+        // if (shouldLog) {
+          // console.log('[🟡 items getter] 重建 list items', {
+          //   oldMapsKeys: this._maps ? Array.from(this._maps.keys()) : [],
+          //   newDataLength: data.length,
+          // });
+        // }
+
         data.forEach((item: any, idx: number) => {
           items = items || [];
           let prop;
-          if (this._maps?.has(idx.toString())) {
+          const hasOldProp = this._maps?.has(idx.toString());
+
+          if (hasOldProp) {
             prop = this._maps.get(idx.toString())!;
+            // if (shouldLog) {
+            //   console.log(`[🟡 items[${idx}]] 复用旧 Prop`, {
+            //     oldPropPurged: prop.purged,
+            //     itemKey: item?.key,
+            //     itemSlotName: item?.children?.name,
+            //   });
+            // }
             prop.setValue(item);
           } else {
+            // if (shouldLog) {
+            //   console.log(`[🟡 items[${idx}]] 创建新 Prop`, { itemKey: item?.key });
+            // }
             prop = new Prop(this, item, idx);
           }
           maps.set(idx.toString(), prop);
           items.push(prop);
         });
+
+        // 检查是否有旧的 Prop 被丢弃
+        // if (shouldLog && this._maps) {
+          // this._maps.forEach((oldProp, oldKey) => {
+            // if (!maps.has(oldKey)) {
+            //   console.warn(`[⚠️ items] 旧 Prop[${oldKey}] 未被复用`, {
+            //     purged: oldProp.purged,
+            //   });
+            // }
+        //   });
+        // }
+
         this._maps = maps;
       } else if (this._type === 'map') {
         const data = this._value;
@@ -201,6 +237,7 @@ export class Prop implements IProp, IPropParent {
         this._maps = null;
       }
       this._items = items;
+
       return this._items;
     });
   }
@@ -353,6 +390,16 @@ export class Prop implements IProp, IPropParent {
   @action
   setValue(val: IPublicTypeCompositeValue) {
     if (val === this._value) return;
+
+    // 只记录 list 属性的变化
+    // const shouldLog = this.key === 'list' && Array.isArray(val);
+    // if (shouldLog) {
+    //   console.log('[🔵 Prop.setValue] list 数组变化', {
+    //     oldLength: Array.isArray(this._value) ? this._value.length : 'N/A',
+    //     newLength: val.length,
+    //   });
+    // }
+
     const oldValue = this._value;
     this._value = val;
     this._code = null;
@@ -421,6 +468,10 @@ export class Prop implements IProp, IPropParent {
       items.forEach((prop) => prop.purge());
     }
     this._items = null;
+
+    // ✅ 清空 _maps，防止复用已 purge 的 Prop
+    this._maps = null;
+
     if (this._type !== 'slot' && this._slotNode) {
       this._slotNode.remove();
       this._slotNode = undefined;
@@ -459,6 +510,10 @@ export class Prop implements IProp, IPropParent {
       const { owner } = this.props;
       this._slotNode = owner.document?.createNode<ISlotNode>(slotSchema);
       if (this._slotNode) {
+        // console.log('[🟢 setAsSlot] 新建 slot', {
+        //   slotName: data.name,
+        //   ownerSlotsCount: owner._slots.length,
+        // });
         owner.addSlot(this._slotNode);
         this._slotNode.internalSetSlotFor(this);
       }
@@ -702,6 +757,7 @@ export class Prop implements IProp, IPropParent {
     if (this.purged) {
       return;
     }
+
     this.purged = true;
     if (this._items) {
       this._items.forEach((item) => item.purge());
@@ -709,8 +765,15 @@ export class Prop implements IProp, IPropParent {
     this._items = null;
     this._maps = null;
     if (this._slotNode && this._slotNode.slotFor === this) {
+      const slotName = this._slotNode.getExtraProp('name')?.getAsString();
+      // console.log('[🔴 purge] 移除 slot', { slotName });
       this._slotNode.remove();
       this._slotNode = undefined;
+    } else if (this._slotNode) {
+      // console.warn('[⚠️ purge] slotFor 不匹配，slot 未移除！', {
+      //   slotId: this._slotNode.id,
+      //   slotName: this._slotNode.getExtraProp('name')?.getAsString(),
+      // });
     }
   }
 

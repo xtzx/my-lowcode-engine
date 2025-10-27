@@ -171,7 +171,7 @@ export class Dragon implements IDragon {
    * @param boostEvent 拖拽初始时事件
    */
   boost(dragObject: IPublicModelDragObject, boostEvent: MouseEvent | DragEvent, fromRglNode?: INode | IPublicModelNode) {
-    console.log('boost-->dragObject: ', dragObject);
+    // console.log('boost-->dragObject: ', dragObject);
     // console.log('boost-->fromRglNode: ', fromRglNode);
 
     const { designer } = this;
@@ -541,6 +541,7 @@ export class Dragon implements IDragon {
     handleEvents((doc) => {
       /* istanbul ignore next */
       if (isBoostFromDragAPI) {
+        console.log('原生拖拽事件开始监听');
         doc.addEventListener('dragover', move, true);
         // dragexit
         didDrop = false;

@@ -196,6 +196,8 @@ class TreeNodeSlots extends PureComponent<{
       return null;
     }
     const Title = this.props.treeNode.pluginContext.common.editorCabin.Title;
+
+    // 这是最大的所有插槽集合
     return (
       <div
         className={classNames('tree-node-slots', {
@@ -205,7 +207,7 @@ class TreeNodeSlots extends PureComponent<{
       >
         <div className="tree-node-slots-title">
           {/* @ts-ignore */}
-          <Title title={{ type: 'i18n', intl: this.props.treeNode.pluginContext.intlNode('Slots') }} />
+          <Title title={'插槽列表'} />
         </div>
         {treeNode.slots.map(tnode => (
           <TreeNodeView key={tnode.nodeId} treeNode={tnode} />

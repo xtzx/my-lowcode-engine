@@ -85,6 +85,7 @@ export default class TreeTitle extends PureComponent<{
 
   componentDidMount() {
     const { treeNode } = this.props;
+
     this.setState({
       editing: false,
       title: treeNode.titleLabel,
@@ -118,6 +119,12 @@ export default class TreeTitle extends PureComponent<{
   };
   render() {
     const { treeNode, isModal } = this.props;
+
+    const componentName = treeNode.node.propsData?.componentName ?? treeNode.node.propsData?.settings?.componentName;
+    // console.log(`现在标题是 ${this.state.title}, componentName 是 ${componentName}`);
+    const { title } = this.state;
+    const showTitle = `${title}${componentName ? `(${componentName})` : ''}`;
+
     const { pluginContext } = treeNode;
     const { editing, filterWorking, matchSelf, keywords } = this.state;
     const isCNode = !treeNode.isRoot();
@@ -195,7 +202,7 @@ export default class TreeTitle extends PureComponent<{
             <Fragment>
               {/* @ts-ignore */}
               <Title
-                title={this.state.title}
+                title={showTitle}
                 match={filterWorking && matchSelf}
                 keywords={keywords}
               />
@@ -226,9 +233,9 @@ export default class TreeTitle extends PureComponent<{
             </Fragment>
           )}
         </div>
-        {shouldShowHideBtn && <HideBtn hidden={this.props.hidden} treeNode={treeNode} />}
-        {shouldShowLockBtn && <LockBtn locked={this.props.locked} treeNode={treeNode} />}
-        {shouldEditBtn && <RenameBtn treeNode={treeNode} onClick={this.enableEdit} />}
+        {/* {shouldShowHideBtn && <HideBtn hidden={this.props.hidden} treeNode={treeNode} />} */}
+        {/* {shouldShowLockBtn && <LockBtn locked={this.props.locked} treeNode={treeNode} />} */}
+        {/* {shouldEditBtn && <RenameBtn treeNode={treeNode} onClick={this.enableEdit} />} */}
         {shouldDeleteBtn && <DeleteBtn treeNode={treeNode} onClick={this.deleteClick} />}
       </div>
     );
@@ -333,8 +340,9 @@ class ExpandBtn extends PureComponent<{
 }> {
   render() {
     const { treeNode, expanded, expandable } = this.props;
+
     if (!expandable) {
-      return <i className="tree-node-expand-placeholder" />;
+      return <i className="tree-node-expand-placeholder" style={{ flexShrink: 0 }} />;
     }
     return (
       <div

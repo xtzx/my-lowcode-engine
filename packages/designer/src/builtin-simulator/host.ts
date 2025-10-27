@@ -547,15 +547,14 @@ export class BuiltinSimulatorHost implements ISimulatorHost<BuiltinSimulatorProp
         if (this.liveEditing.editing || !documentModel) {
           return;
         }
+
+        let skip = false;
         // 如果 downEvent.target 是 SVG 元素，直接返回
         if (downEvent.target && (downEvent.target as Element).tagName &&
             ['svg', 'SVG'].includes((downEvent.target as Element).tagName)) {
-          return;
+              skip = true;
         }
-        if (downEvent.target?.classList.contains('react-resizable-handle')
-          // || downEvent.target?.classList.contains('react-grid-layout')
-          // || downEvent.target?.className.includes('single-tabs--tab_bar_item')
-        ) {
+        if (downEvent.target?.classList.contains('react-resizable-handle')) {
           return;
         }
 
@@ -569,12 +568,23 @@ export class BuiltinSimulatorHost implements ISimulatorHost<BuiltinSimulatorProp
         // FIXME: dirty fix remove label-for fro liveEditing
         downEvent.target?.removeAttribute('for');
         const nodeInst = this.getNodeInstanceFromElement(downEvent.target);
+
         const { focusNode } = documentModel;
         const node = getClosestClickableNode(nodeInst?.node || focusNode, downEvent);
         // 如果找不到可点击的节点，直接返回
         if (!node) {
           return;
         }
+
+        // 判断 nodeInst 是否处于容器中
+        const parentNode = nodeInst?.node?.getParent();
+        const isInContainer = parentNode?.isContainer();
+        const parentNodeName = parentNode?.componentName;
+
+        if (isInContainer && parentNodeName === 'CombinationContainer') {
+          skip = true;
+        }
+
         // 触发 onMouseDownHook 钩子
         const onMouseDownHook = node.componentMeta.advanced.callbacks?.onMouseDownHook;
         if (onMouseDownHook) {
@@ -602,7 +612,7 @@ export class BuiltinSimulatorHost implements ISimulatorHost<BuiltinSimulatorProp
         //   return;
         // }
         const isLeftButton = downEvent.which === 1 || downEvent.button === 0;
-        const checkSelect = (e: MouseEvent) => {
+        function checkSelect(e: MouseEvent) {
           doc.removeEventListener('mouseup', checkSelect, true);
           // 取消移动;
           designer.dragon.emitter.emit('rgl.switch', {
@@ -637,7 +647,7 @@ export class BuiltinSimulatorHost implements ISimulatorHost<BuiltinSimulatorProp
               });
             }
           }
-        };
+        }
 
         if (isLeftButton && focusNode && !node.contains(focusNode)) {
           let nodes: INode[] = [node];
@@ -657,14 +667,18 @@ export class BuiltinSimulatorHost implements ISimulatorHost<BuiltinSimulatorProp
           } else {
             // will clear current selection & select dragment in dragstart
           }
-          designer.dragon.boost(
-            {
-              type: IPublicEnumDragObjectType.Node,
-              nodes,
-            },
-            downEvent,
-            isRGLNode ? rglNode : undefined,
-          );
+
+          if (!skip) {
+            designer.dragon.boost(
+              {
+                type: IPublicEnumDragObjectType.Node,
+                nodes,
+              },
+              downEvent,
+              isRGLNode ? rglNode : undefined,
+            );
+          }
+
           if (ignoreUpSelected) {
             // multi select mode has add selected, should return
             return;

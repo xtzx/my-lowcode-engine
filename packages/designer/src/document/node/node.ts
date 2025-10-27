@@ -427,6 +427,14 @@ export class Node<Schema extends IPublicTypeNodeSchema = IPublicTypeNodeSchema> 
     return this.document.designer.transformProps(props, this, IPublicEnumTransformStage.Upgrade);
   }
 
+  private notifyChildrenChange(info?: { type: string; node: INode }) {
+    const editor = this.document?.designer.editor;
+    editor?.eventBus.emit(EDITOR_EVENT.NODE_CHILDREN_CHANGE, {
+      type: info?.type,
+      node: this,
+    });
+  }
+
   private setupAutoruns() {
     const { autoruns } = this.componentMeta.advanced;
     if (!autoruns || autoruns.length < 1) {
@@ -1024,6 +1032,9 @@ export class Node<Schema extends IPublicTypeNodeSchema = IPublicTypeNodeSchema> 
     if (i < 0) {
       return false;
     }
+    console.log('[🔴 unlinkSlot]', {
+      beforeCount: this._slots.length,
+    });
     this._slots.splice(i, 1);
   }
 
@@ -1031,6 +1042,12 @@ export class Node<Schema extends IPublicTypeNodeSchema = IPublicTypeNodeSchema> 
    * 删除一个Slot节点
    */
   removeSlot(slotNode: INode): boolean {
+    const slotName = slotNode.getExtraProp('name')?.getAsString();
+    console.log('[🔴 removeSlot]', {
+      slotName,
+      beforeCount: this._slots.length,
+    });
+
     // if (purge) {
     //   // should set parent null
     //   slotNode?.internalSetParent(null, false);
@@ -1040,20 +1057,34 @@ export class Node<Schema extends IPublicTypeNodeSchema = IPublicTypeNodeSchema> 
     // this.document.selection.remove(slotNode.id);
     const i = this._slots.indexOf(slotNode);
     if (i < 0) {
+      // console.warn('[⚠️ removeSlot] slot 不在 _slots 数组中！');
       return false;
     }
     this._slots.splice(i, 1);
+    this.notifyChildrenChange({ type: 'removeSlot', node: slotNode }); // 🆕
+
+    // console.log('[🔴 removeSlot] 完成', { afterCount: this._slots.length });
     return false;
   }
 
   addSlot(slotNode: INode) {
     const slotName = slotNode?.getExtraProp('name')?.getAsString();
+    console.log('[🟢 addSlot]', {
+      slotName,
+      beforeCount: this._slots.length,
+    });
+
     // 一个组件下的所有 slot，相同 slotName 的 slot 应该是唯一的
     if (includeSlot(this, slotName)) {
+      // console.log('[🟢 addSlot] 发现重复 slotName，移除旧的');
       removeSlot(this, slotName);
     }
     slotNode.internalSetParent(this as INode, true);
     this._slots.push(slotNode);
+
+    this.notifyChildrenChange({ type: 'addSlot', node: slotNode }); // 🆕
+
+    // console.log('[🟢 addSlot] 完成', { afterCount: this._slots.length });
   }
 
   /**
