@@ -1,4 +1,4 @@
-import { untracked, computed, obx, engineConfig, action, makeObservable, mobx, runInAction } from '@alilc/lowcode-editor-core';
+import { computed, obx, engineConfig, action, makeObservable, mobx, runInAction } from '@alilc/lowcode-editor-core';
 import { GlobalEvent, IPublicEnumTransformStage } from '@alilc/lowcode-types';
 import type { IPublicTypeCompositeValue, IPublicTypeJSSlot, IPublicTypeSlotSchema, IPublicModelProp } from '@alilc/lowcode-types';
 import { uniqueId, isPlainObject, hasOwnProperty, compatStage, isJSExpression, isJSSlot, isNodeSchema } from '@alilc/lowcode-utils';
@@ -162,67 +162,56 @@ export class Prop implements IProp, IPropParent {
   private get items(): IProp[] | null {
     if (this._items) return this._items;
 
-    // 只记录 list 类型的重建
-    // const shouldLog = this.key === 'list' && this._type === 'list';
-
     return runInAction(() => {
       let items: IProp[] | null = null;
       if (this._type === 'list') {
         const maps = new Map<string, IProp>();
         const data = this._value;
 
-        // if (shouldLog) {
-          // console.log('[🟡 items getter] 重建 list items', {
-          //   oldMapsKeys: this._maps ? Array.from(this._maps.keys()) : [],
-          //   newDataLength: data.length,
-          // });
-        // }
+        const usedOldProps = new Set<IProp>();
 
         data.forEach((item: any, idx: number) => {
           items = items || [];
           let prop;
           const hasOldProp = this._maps?.has(idx.toString());
+          const oldProp = hasOldProp ? this._maps.get(idx.toString())! : null;
 
-          if (hasOldProp) {
-            prop = this._maps.get(idx.toString())!;
-            // if (shouldLog) {
-            //   console.log(`[🟡 items[${idx}]] 复用旧 Prop`, {
-            //     oldPropPurged: prop.purged,
-            //     itemKey: item?.key,
-            //     itemSlotName: item?.children?.name,
-            //   });
-            // }
+          // ⚠️ 关键：不复用已 purge 的 Prop
+          if (oldProp && !oldProp.purged) {
+            prop = oldProp;
+            usedOldProps.add(prop);
             prop.setValue(item);
           } else {
-            // if (shouldLog) {
-            //   console.log(`[🟡 items[${idx}]] 创建新 Prop`, { itemKey: item?.key });
-            // }
             prop = new Prop(this, item, idx);
           }
           maps.set(idx.toString(), prop);
           items.push(prop);
         });
 
-        // 检查是否有旧的 Prop 被丢弃
-        // if (shouldLog && this._maps) {
-          // this._maps.forEach((oldProp, oldKey) => {
-            // if (!maps.has(oldKey)) {
-            //   console.warn(`[⚠️ items] 旧 Prop[${oldKey}] 未被复用`, {
-            //     purged: oldProp.purged,
-            //   });
-            // }
-        //   });
-        // }
+        // 清理未被复用的旧 Prop
+        if (this._maps) {
+          this._maps.forEach((oldProp) => {
+            if (!usedOldProps.has(oldProp) && !oldProp.purged) {
+              oldProp.purge();
+            }
+          });
+        }
 
         this._maps = maps;
       } else if (this._type === 'map') {
         const data = this._value;
         const maps = new Map<string, IProp>();
         const keys = Object.keys(data);
+        const usedOldProps = new Set<IProp>();
+
         for (const key of keys) {
           let prop: IProp;
-          if (this._maps?.has(key)) {
-            prop = this._maps.get(key)!;
+          const oldProp = this._maps?.has(key) ? this._maps.get(key)! : null;
+
+          // ⚠️ 关键：不复用已 purge 的 Prop
+          if (oldProp && !oldProp.purged) {
+            prop = oldProp;
+            usedOldProps.add(prop);
             prop.setValue(data[key]);
           } else {
             prop = new Prop(this, data[key], key);
@@ -231,8 +220,26 @@ export class Prop implements IProp, IPropParent {
           items.push(prop);
           maps.set(key, prop);
         }
+
+        // 清理未被复用的旧 Prop
+        if (this._maps) {
+          this._maps.forEach((oldProp) => {
+            if (!usedOldProps.has(oldProp) && !oldProp.purged) {
+              oldProp.purge();
+            }
+          });
+        }
+
         this._maps = maps;
       } else {
+        // 类型不是 list/map，清理所有旧的 Prop
+        if (this._maps) {
+          this._maps.forEach((oldProp) => {
+            if (!oldProp.purged) {
+              oldProp.purge();
+            }
+          });
+        }
         items = null;
         this._maps = null;
       }
@@ -391,15 +398,6 @@ export class Prop implements IProp, IPropParent {
   setValue(val: IPublicTypeCompositeValue) {
     if (val === this._value) return;
 
-    // 只记录 list 属性的变化
-    // const shouldLog = this.key === 'list' && Array.isArray(val);
-    // if (shouldLog) {
-    //   console.log('[🔵 Prop.setValue] list 数组变化', {
-    //     oldLength: Array.isArray(this._value) ? this._value.length : 'N/A',
-    //     newLength: val.length,
-    //   });
-    // }
-
     const oldValue = this._value;
     this._value = val;
     this._code = null;
@@ -463,14 +461,8 @@ export class Prop implements IProp, IPropParent {
 
   @action
   private dispose() {
-    const items = untracked(() => this._items);
-    if (items) {
-      items.forEach((prop) => prop.purge());
-    }
+    // 清空 items 缓存，items getter 会重新构建并清理未使用的 Prop
     this._items = null;
-
-    // ✅ 清空 _maps，防止复用已 purge 的 Prop
-    this._maps = null;
 
     if (this._type !== 'slot' && this._slotNode) {
       this._slotNode.remove();
@@ -504,16 +496,13 @@ export class Prop implements IProp, IPropParent {
       };
     }
 
+    const { owner } = this.props;
+
     if (this._slotNode) {
       this._slotNode.import(slotSchema);
     } else {
-      const { owner } = this.props;
       this._slotNode = owner.document?.createNode<ISlotNode>(slotSchema);
       if (this._slotNode) {
-        // console.log('[🟢 setAsSlot] 新建 slot', {
-        //   slotName: data.name,
-        //   ownerSlotsCount: owner._slots.length,
-        // });
         owner.addSlot(this._slotNode);
         this._slotNode.internalSetSlotFor(this);
       }
@@ -764,16 +753,10 @@ export class Prop implements IProp, IPropParent {
     }
     this._items = null;
     this._maps = null;
+
     if (this._slotNode && this._slotNode.slotFor === this) {
-      const slotName = this._slotNode.getExtraProp('name')?.getAsString();
-      // console.log('[🔴 purge] 移除 slot', { slotName });
       this._slotNode.remove();
       this._slotNode = undefined;
-    } else if (this._slotNode) {
-      // console.warn('[⚠️ purge] slotFor 不匹配，slot 未移除！', {
-      //   slotId: this._slotNode.id,
-      //   slotName: this._slotNode.getExtraProp('name')?.getAsString(),
-      // });
     }
   }
 

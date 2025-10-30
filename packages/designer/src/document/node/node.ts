@@ -1032,9 +1032,9 @@ export class Node<Schema extends IPublicTypeNodeSchema = IPublicTypeNodeSchema> 
     if (i < 0) {
       return false;
     }
-    console.log('[🔴 unlinkSlot]', {
-      beforeCount: this._slots.length,
-    });
+    // console.log('[🔴 unlinkSlot]', {
+    //   beforeCount: this._slots.length,
+    // });
     this._slots.splice(i, 1);
   }
 
@@ -1042,11 +1042,11 @@ export class Node<Schema extends IPublicTypeNodeSchema = IPublicTypeNodeSchema> 
    * 删除一个Slot节点
    */
   removeSlot(slotNode: INode): boolean {
-    const slotName = slotNode.getExtraProp('name')?.getAsString();
-    console.log('[🔴 removeSlot]', {
-      slotName,
-      beforeCount: this._slots.length,
-    });
+    // const slotName = slotNode.getExtraProp('name')?.getAsString();
+    // console.log('[🔴 removeSlot]', {
+    //   slotName,
+    //   beforeCount: this._slots.length,
+    // });
 
     // if (purge) {
     //   // should set parent null
@@ -1069,10 +1069,10 @@ export class Node<Schema extends IPublicTypeNodeSchema = IPublicTypeNodeSchema> 
 
   addSlot(slotNode: INode) {
     const slotName = slotNode?.getExtraProp('name')?.getAsString();
-    console.log('[🟢 addSlot]', {
-      slotName,
-      beforeCount: this._slots.length,
-    });
+    // console.log('[🟢 addSlot]', {
+    //   slotName,
+    //   beforeCount: this._slots.length,
+    // });
 
     // 一个组件下的所有 slot，相同 slotName 的 slot 应该是唯一的
     if (includeSlot(this, slotName)) {
